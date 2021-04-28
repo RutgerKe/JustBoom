@@ -1,5 +1,17 @@
 ![Alt text](https://user-images.githubusercontent.com/1878314/73881011-7e819e80-4857-11ea-886f-25fa23f721ce.png)
 # JustBoom
+
+## Modifications in this repo
+As my use case is slightly different, I have a justboom amp hat connected to a Pi which also controls a [Magic Mirror](https://magicmirror.builders/), I changed a bit of the functionality:
+- The button turns the screen on/off (via MQTT)
+- Changes via the rotary encoder are communicated over MQTT, and the program also listens on MQTT
+
+MQTT commands supported:
+- 'Mute', 'Unmute' and 'Toggle mute'
+- 'Change volume' and 'Set volume'
+
+This is implemented by making the already existing 'EasyMixer' a subclass of the paho.mqtt.Client. I also edited some files to work with python 3
+
 ## Rotary encoder volume control
 jb-rotary enables control of volume level via the rotary encoder and mute/unmute function via its push button.
 ### Installation

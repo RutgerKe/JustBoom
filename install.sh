@@ -11,8 +11,8 @@ if [ ! $? = 0 ]; then
 else
     #Installs packages which might be missing
     apt-get install git whiptail -y
-    apt-get install python-alsaaudio -y
-    apt-get install python-rpi.gpio -y
+    apt-get install python3-alsaaudio -y
+    apt-get install python3-rpi.gpio -y
 
     JustBoomDir="JustBoom"
     if [ -d "$JustBoomDir" ]; then

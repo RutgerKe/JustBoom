@@ -1,14 +1,23 @@
-#!/usr/bin/env python
+#!/usr/bin/python3
 # Author: Francesco Vannini
 # Company: Pi Supply
 
+import logging
+import json
 import alsaaudio
 import RPi.GPIO as GPIO
 from time import sleep
 import getopt
+import paho.mqtt.client as mqtt
 import sys
 
 ROTARY_TYPES = ["standard", "keyes"]
+
+MQTT_HOST = "10.80.30.10"
+MQTT_PORT = 1883
+
+MQTT_COMMAND_TOPICS = 'magicmirror/justboom/set/'
+
 
 class Rotary:
     CLOCKWISE = 0
@@ -60,7 +69,7 @@ class Rotary:
         if GPIO.input(self.buttonPin) == 0:
             self.buttonCallback()
 
-class EasyMixer:
+class EasyMixer(mqtt.Client):
     def __init__(self, start_vol, vol_inc, clk, dt, btn, rot_type):
         cardId = 0
 
@@ -100,6 +109,13 @@ class EasyMixer:
             print("There are no suitable cards")
             exit()
 
+        # Init the mqtt stuff
+        super().__init__()
+        self.connect(MQTT_HOST, MQTT_PORT, 60)
+        # With the # suffix we subscribe to all subtopics
+        self.subscribe(MQTT_COMMAND_TOPICS + "#")
+
+
     def getmute(self):
         self.isMute = self.mixer.getmute()[0]
         return self.isMute
@@ -112,6 +128,7 @@ class EasyMixer:
 
     def setvolume(self, volume):
         self.mixer.setvolume(volume)
+        self.publish("magicmirror/justboom/state", str(volume))
 
     def upvolume(self):
         if (self.getvolume() + self.volinc) <= 100:
@@ -137,6 +154,10 @@ class EasyMixer:
             print("Volume: " + str(self.getvolume()))
 
     def buttonpressed(self):
+        self.publish("magicmirror/screen/set", '{"state": "TOGGLE"}')
+
+    def toggle_mute(self):
+        # Toggle and the unmute/mute logic could be merged. This function is just what was already available
         if self.hasMute:
             if (self.getmute()):  # Is the audio muted?
                 self.setvolume(self.getvolume())  # Applies the last known value of volume (before entering mute)
@@ -155,6 +176,46 @@ class EasyMixer:
 
     def stop(self):
         self.rotary.stop()
+
+    def on_connect(self, client, userdata, flags, rc):
+        logging.info("Connected with result code " + str(rc))
+
+    def on_disconnect(self, client, userdata, rc=0):
+        logging.info("Disconnected with result code " + str(rc))
+        # Do nothing, just do the default and try to reconnect
+
+    def on_message(self, client, userdata, msg):
+        logging.info(msg.topic + " " + str(msg.payload))
+
+        command = msg.topic.split(MQTT_COMMAND_TOPICS)[1]
+        if command == "MUTE":
+            if msg.payload.decode() == "MUTE":
+                if self.hasMute:
+                    self.setmute(1)
+                else:
+                    self.setvolume(0)   # Since the control hasn't got a mute we simply set the volume to 0
+            elif msg.payload.decode() == "UNMUTE":
+                if self.hasMute:
+                    self.setvolume(self.getvolume())  # Applies the last known value of volume (before entering mute)
+                    self.setmute(0)  # Unmute the sound
+                else:
+                    logging.info("Unmuting not supported, just increase the volume")
+            elif msg.payload.decode() == "TOGGLE":
+                self.toggle_mute()
+
+        elif command == "VOLUME":
+            payload = json.loads(msg.payload)
+            if payload['COMMAND'] == "SET":
+                self.setvolume(payload['VALUE'])
+            elif payload['COMMAND'] == "CHANGE":
+                if 'VALUE' in payload:
+                    self.setvolume(self.getvolume() + payload['VALUE'])
+                elif 'DIRECTION' in payload:
+                    if payload['DIRECTION'] == "DOWN":
+                        self.downvolume()
+                    elif payload['DIRECTION'] == "UP":
+                        self.upvolume()
+
 
 def usage():
     print('Usage: \tjb_rotary [-sirtbv]\n' + \
@@ -179,7 +240,7 @@ rotary_type = "standard"
 try:
     options, remainder  = getopt.getopt(sys.argv[1:], "h:s:i:r:b:t:", ['help', 'startvol=', 'volinc=', 'rotary=', 'button=', 'type='])
 except getopt.GetoptError as err:
-    print str(err)
+    print(str(err))
     usage()
     sys.exit(2)
 
@@ -205,6 +266,7 @@ GPIO.setmode(GPIO.BOARD) # Set the GPIO with pin numbering
 easy_mixer = EasyMixer(start_volume,volume_increments, int(rotary_pins[0]), int(rotary_pins[1]), button_pin, rotary_type) # New mixer instantiation
 
 easy_mixer.start() # Start mixer and rotary encoder
+easy_mixer.loop_start() # Start mqtt non-blocking loop
 
 # Wait for something to happen
 try:
@@ -212,4 +274,5 @@ try:
         sleep(0.1)
 finally:
     easy_mixer.stop()
+    easy_mixer.loop_stop()
     GPIO.cleanup()
