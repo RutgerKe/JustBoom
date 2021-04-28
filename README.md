@@ -12,6 +12,15 @@ MQTT commands supported:
 
 This is implemented by making the already existing 'EasyMixer' a subclass of the paho.mqtt.Client. I also edited some files to work with python 3
 
+### Command examples:
+The mute topic just takes a word (MUTE, UNMUTE or TOGGLE): `mosquitto_pub -h localhost -t magicmirror/justboom/set/MUTE -m 'TOGGLE'`
+
+The volume topic takes a json object: `mosquitto_pub -h localhost -t magicmirror/justboom/set/VOLUME -m '{"COMMAND": "SET", "VALUE": 55}'`
+
+Negative changes are supported: `mosquitto_pub -h localhost -t magicmirror/justboom/set/VOLUME -m '{"COMMAND": "CHANGE", "VALUE": -5}'`
+
+The default rotary turn increment is used if not specified: `mosquitto_pub -h localhost -t magicmirror/justboom/set/VOLUME -m '{"COMMAND": "CHANGE", "DIRECTION": "DOWN"}'`
+
 ## Rotary encoder volume control
 jb-rotary enables control of volume level via the rotary encoder and mute/unmute function via its push button.
 ### Installation

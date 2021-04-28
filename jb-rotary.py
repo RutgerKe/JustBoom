@@ -206,10 +206,12 @@ class EasyMixer(mqtt.Client):
         elif command == "VOLUME":
             payload = json.loads(msg.payload)
             if payload['COMMAND'] == "SET":
-                self.setvolume(payload['VALUE'])
+                if payload['VALUE'] <= 100 and payload['VALUE'] >= 0:
+                    self.setvolume(payload['VALUE'])
             elif payload['COMMAND'] == "CHANGE":
                 if 'VALUE' in payload:
-                    self.setvolume(self.getvolume() + payload['VALUE'])
+                    if payload['VALUE'] + self.getvolume() <= 100 and payload['VALUE'] + self.getvolume() >= 0:
+                        self.setvolume(self.getvolume() + payload['VALUE'])
                 elif 'DIRECTION' in payload:
                     if payload['DIRECTION'] == "DOWN":
                         self.downvolume()
