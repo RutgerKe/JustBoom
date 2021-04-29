@@ -14,13 +14,16 @@ else
     apt-get install python3-alsaaudio -y
     apt-get install python3-rpi.gpio -y
 
+    # Running this as root is not best practice and a temporary solution
+    pip3 install paho-mqtt
+
     JustBoomDir="JustBoom"
     if [ -d "$JustBoomDir" ]; then
         whiptail --title "Installation aborted" --msgbox "$JustBoomDir already exists, please remove it and restart the installation" 8 78
         exit
     fi
 
-    git clone https://github.com/PiSupply/JustBoom.git
+    git clone https://github.com/RutgerKe/JustBoom.git
     mkdir /opt/justboom
     cp $JustBoomDir/jb-rotary.py /opt/justboom
     cp $JustBoomDir/jb-rotary.service /lib/systemd/system
